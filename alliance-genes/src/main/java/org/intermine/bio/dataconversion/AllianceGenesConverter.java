@@ -9,28 +9,33 @@ package org.intermine.bio.dataconversion;
  * information or http://www.gnu.org/copyleft/lesser.html.
  *
  */
+import java.io.Reader;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
-import org.intermine.dataconversion.ItemWriter;
 import org.intermine.metadata.Model;
-import org.intermine.sql.Database;
+import org.apache.commons.lang.StringUtils;
+import org.intermine.dataconversion.ItemWriter;
+import org.intermine.objectstore.ObjectStoreException;
+import org.intermine.util.FormattedTextParser;
+import org.intermine.metadata.Model;
 import org.intermine.xml.full.Item;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 /**
  * 
  * @author
  */
-public class AllianceGenesConverter extends BioDBConverter
+public class AllianceGenesConverter extends BioFileConverter
 {
     // 
     private static final String DATASET_TITLE = "Add DataSet.title here";
     private static final String DATA_SOURCE_NAME = "Add DataSource.name here";
     private String licence;
+    private Map<String, Item> genes = new HashMap();
 
+    private static final String TAXON_ID = "4932";
+    private Item organism;
 
     /**
      * Construct a new AllianceGenesConverter.
@@ -38,52 +43,32 @@ public class AllianceGenesConverter extends BioDBConverter
      * @param model the Model used by the object store we will write to with the ItemWriter
      * @param writer an ItemWriter used to handle Items created
      */
-    public AllianceGenesConverter(Database database, Model model, ItemWriter writer) {
-        super(database, model, writer, DATA_SOURCE_NAME, DATASET_TITLE);
+    public AllianceGenesConverter(ItemWriter writer, Model model) {
+        super(writer, model, DATA_SOURCE_NAME, DATASET_TITLE);
     }
 
 
     /**
      * {@inheritDoc}
      */
-    public void process() throws Exception {
-        // a database has been initialised from properties starting with db.alliance-genes
+    public void process(Reader reader) throws Exception {
+        Iterator<?> lineIter = FormattedTextParser.parseTabDelimitedReader(reader);
 
-        Connection connection = getDatabase().getConnection();
+        while (lineIter.hasNext()) {
 
-        // process data with direct SQL queries on the source database, for example:
-        
-        // Statement stmt = connection.createStatement();
-        // String query = "select column from table;";
-        // ResultSet res = stmt.executeQuery(query);
-        // while (res.next()) {
-        // }   
+            String[] line = (String[]) lineIter.next();
+            String primaryIdentifier = line[0].trim();
+            String name = line[1].trim();
+            String description = line[2].trim();
+            System.out.println("Processing line.." + primaryIdentifier);
+            Item gene = createItem("Gene");
+            gene.setAttribute("primaryIdentifier", primaryIdentifier);
+            if(StringUtils.isNotEmpty(name)) { gene.setAttribute("symbol", name); }
+            if(StringUtils.isNotEmpty(description)) { gene.setAttribute("briefDescription", description);}
+            //gene.setReference("organism", getOrganism(taxonId));
+            store(gene);
+        }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getDataSetTitle(String taxonId) {
-        return DATASET_TITLE;
-    }
-
-    /**
-     * Set the data licence for these data.
-     *
-     * @param licence should be URI to data licence.
-     */
-    public void setLicence(String licence) {
-        this.licence = licence;
-    }
-
-    /**
-     * Get the data licence for these data.
-     *
-     * @return URI to data licence.
-     */
-    public String getLicence() {
-        return licence;
-    }
 
 }
